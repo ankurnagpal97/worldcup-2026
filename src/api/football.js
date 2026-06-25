@@ -8,7 +8,11 @@ const TLA_REMAP = {
 const FINISHED = new Set(['FINISHED'])
 const IN_PLAY  = new Set(['IN_PLAY', 'PAUSED', 'HALFTIME', 'EXTRA_TIME', 'PENALTY_SHOOTOUT'])
 
-const API_URL = '/football-api/v4/competitions/WC/matches'
+// In dev, use the Vite proxy to avoid CORS on localhost.
+// In production (GitHub Pages), call the API directly — football-data.org supports CORS on real domains.
+const API_URL = import.meta.env.DEV
+  ? '/football-api/v4/competitions/WC/matches'
+  : 'https://api.football-data.org/v4/competitions/WC/matches'
 
 export async function fetchWCFixtures(apiKey) {
   const res = await fetch(API_URL, {
