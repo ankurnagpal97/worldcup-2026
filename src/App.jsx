@@ -7,10 +7,8 @@ import KnockoutBracket from './components/KnockoutBracket.jsx'
 import Leaderboard from './components/Leaderboard.jsx'
 import Celebration from './components/Celebration.jsx'
 
-const API_KEY = import.meta.env.VITE_FOOTBALL_DATA_KEY
-
 export default function App() {
-  const { matches, loading, error, lastUpdated } = useLiveMatches(API_KEY)
+  const { matches, loading, error, lastUpdated } = useLiveMatches()
   const { sorted: leaderboard, recordWin, clear: clearLeaderboard } = useLeaderboard()
   const {
     state,
@@ -114,16 +112,14 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
-        {API_KEY && API_KEY !== 'your_football_data_key_here' ? (
-          loading ? (
-            <span>Fetching live data…</span>
-          ) : error ? (
-            <span className="footer-error">Live data error: {error}</span>
-          ) : lastUpdated ? (
-            <span>Live data · Updated {lastUpdated.toLocaleTimeString()} · Predictions saved locally</span>
-          ) : null
+        {loading ? (
+          <span>Loading fixtures…</span>
+        ) : error ? (
+          <span className="footer-error">Fixtures error: {error}</span>
+        ) : lastUpdated ? (
+          <span>Updated {lastUpdated.toLocaleTimeString()} · Predictions saved locally</span>
         ) : (
-          <span>Static data · Add VITE_FOOTBALL_DATA_KEY to .env for live updates · Predictions saved locally</span>
+          <span>Predictions saved locally</span>
         )}
       </footer>
     </div>

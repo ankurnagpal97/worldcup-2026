@@ -1,0 +1,71 @@
+name: Update Fixtures
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # every 30 minutes
+  workflow_dispatch:           # manual trigger
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch from football-data.org
+        env:
+          FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+        run: |
+          curl -s \
+            -H "X-Auth-Token: $FOOTBALL_API_KEY" \
+            "https://api.football-data.org/v4/competitions/WC/matches" \
+            -o raw.json
+
+      - name: Process into fixtures.json
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          TLA_REMAP = {'CUW': 'CUR'}
+          FINISHED = {'FINISHED'}
+          IN_PLAY  = {'IN_PLAY', 'PAUSED', 'HALFTIME', 'EXTRA_TIME', 'PENALTY_SHOOTOUT'}
+
+          with open('raw.json') as f:
+              data = json.load(f)
+
+          out = []
+          for m in data['matches']:
+              h = m['homeTeam']['tla']
+              a = m['awayTeam']['tla']
+              if not h or not a:
+                  continue
+              h = TLA_REMAP.get(h, h)
+              a = TLA_REMAP.get(a, a)
+              status = m['status']
+              ft = m['score']['fullTime']
+              out.append({
+                  'homeCode': h,
+                  'awayCode': a,
+                  'homeScore': ft['home'],
+                  'awayScore': ft['away'],
+                  'finished': status in FINISHED,
+                  'live': status in IN_PLAY,
+                  'stage': m['stage'],
+                  'matchday': m.get('matchday'),
+                  'group': m.get('group'),
+              })
+
+          with open('public/fixtures.json', 'w') as f:
+              json.dump({'updatedAt': data['matches'][0]['lastUpdated'] if data['matches'] else '', 'fixtures': out}, f)
+          print(f"Wrote {len(out)} fixtures")
+          EOF
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/fixtures.json
+          git diff --cached --quiet || git commit -m "chore: update fixtures [skip ci]"
+          git push

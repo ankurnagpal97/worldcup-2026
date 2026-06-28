@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { GROUP_MATCHES } from '../data/matches.js'
 import { fetchWCFixtures } from '../api/football.js'
 
-const POLL_MS = 60 * 60 * 1000
-const CACHE_TTL_MS = 30 * 60 * 1000
+const POLL_MS = 5 * 60 * 1000       // re-fetch fixtures.json every 5 min
+const CACHE_TTL_MS = 4 * 60 * 1000  // treat cached result as fresh for 4 min
 const CACHE_KEY = 'wc2026_fixtures_cache'
 
 function readCache() {
@@ -40,21 +40,19 @@ function mergeFixtures(fixtures) {
   })
 }
 
-export function useLiveMatches(apiKey) {
-  const cached = apiKey ? readCache() : null
+export function useLiveMatches() {
+  const cached = readCache()
 
   const [matches, setMatches] = useState(() => cached ? mergeFixtures(cached.fixtures) : GROUP_MATCHES)
-  const [loading, setLoading] = useState(!!apiKey && !cached)
+  const [loading, setLoading] = useState(!cached)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(() => cached ? new Date(cached.timestamp) : null)
   const timerRef = useRef(null)
 
   useEffect(() => {
-    if (!apiKey) return
-
     async function refresh() {
       try {
-        const fixtures = await fetchWCFixtures(apiKey)
+        const fixtures = await fetchWCFixtures()
         writeCache(fixtures)
         setMatches(mergeFixtures(fixtures))
         setLastUpdated(new Date())
@@ -66,8 +64,7 @@ export function useLiveMatches(apiKey) {
       }
     }
 
-    // Skip initial fetch if cache is still fresh; poll will catch up when it expires
-    const delay = cached ? CACHE_TTL_MS - (Date.now() - cached.timestamp) : 0
+    const delay = cached ? Math.max(0, CACHE_TTL_MS - (Date.now() - cached.timestamp)) : 0
     const initialTimer = setTimeout(refresh, delay)
     timerRef.current = setInterval(refresh, POLL_MS)
 
@@ -75,7 +72,7 @@ export function useLiveMatches(apiKey) {
       clearTimeout(initialTimer)
       clearInterval(timerRef.current)
     }
-  }, [apiKey])
+  }, [])
 
   return { matches, loading, error, lastUpdated }
 }
